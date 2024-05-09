@@ -3,9 +3,43 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <random> 
+#include <windows.h>
 
 using namespace std;
 using namespace cv;
+
+vector<float> allStaff;
+map<int, double> noteFrequencyMap;
+
+void playNote(int frequency, int duration) {
+	Beep(frequency, duration);
+}
+
+void createNoteFrequencyMap() {
+	/*noteFrequencyMap["re"] = 293.66;
+	noteFrequencyMap["mi"] = 329.63;
+	noteFrequencyMap["fa"] = 349.23;
+	noteFrequencyMap["sol"] = 392.00;
+	noteFrequencyMap["la"] = 440.00;
+	noteFrequencyMap["si"] = 493.88;
+	noteFrequencyMap["do2"] = 523.25;
+	noteFrequencyMap["re2"] = 587.33;
+	noteFrequencyMap["mi2"] = 659.25;
+	noteFrequencyMap["fa2"] = 698.46;
+	noteFrequencyMap["sol2"] = 783.99;*/
+
+	noteFrequencyMap[10] = 293.66;
+	noteFrequencyMap[9] = 329.63;
+	noteFrequencyMap[8] = 349.23;
+	noteFrequencyMap[7] = 392.00;
+	noteFrequencyMap[6] = 440.00;
+	noteFrequencyMap[5] = 493.88;
+	noteFrequencyMap[4] = 523.25;
+	noteFrequencyMap[3] = 587.33;
+	noteFrequencyMap[2] = 659.25;
+	noteFrequencyMap[1] = 698.46;
+	noteFrequencyMap[0] = 783.99;
+}
 
 bool isInside(Mat img, int i, int j) {
 	return i >= 0 && i < img.rows&& j >= 0 && j < img.cols;
@@ -99,7 +133,7 @@ Mat_<Vec3b> lab_5_bfs_labeling(Mat_<uchar> img) {
 				}
 
 				auto center = computeCenterOfMass(labels, label);
-				cout << center.first << ", " << center.second << endl;
+				//cout << center.first << ", " << center.second << endl;
 				centers.push_back(center);
 			}
 		}
@@ -213,6 +247,26 @@ void removeVerticalLines(Mat_<uchar>& src) {
 	src = dilatare(src, kernel2);
 }
 
+void findPitchOfNote(pair<float, float> coords) {
+	float noteY = coords.first;
+	float minDistance = INT_MAX;
+	int nearestStaffLine = 0;
+
+	for (int i = 0; i < allStaff.size(); i++) {
+		double distance = abs(noteY - allStaff[i]);
+
+		if (distance < minDistance) {
+			minDistance = distance;
+			nearestStaffLine = i;
+		}
+	}
+
+	cout << nearestStaffLine << endl;
+
+	playNote(noteFrequencyMap[nearestStaffLine], 700);
+
+}
+
 void axaAlungire(Mat_<uchar>& src) {
 	double numarator = 0;
 	double numitor = 0;
@@ -247,7 +301,9 @@ void axaAlungire(Mat_<uchar>& src) {
 
 	double phi = atan2(numarator, numitor) / 2;
 
-	cout << phi;
+	if (phi > -0.75 && phi < -0.45) {
+		findPitchOfNote({ rb, cb });
+	}
 }
 
 Mat_<Vec3b> getResult(Mat_<uchar> src) {
@@ -265,7 +321,7 @@ Mat_<Vec3b> getResult(Mat_<uchar> src) {
 		1, 0, 0, 1, 
 		1, 0, 0, 1);
 
-	cout << kernel2;
+	//cout << kernel2;
 
 	dst = eroziune(src, kernel1);
 	dst = dilatare(dst, kernel2);
@@ -282,10 +338,9 @@ Mat_<Vec3b> getResult(Mat_<uchar> src) {
 
 void storePitches(Mat_<uchar> img) {
 	vector<int> staffLines(img.rows);
+	vector<float> staffLinesPairs;
 
-	for (int i = 0; i < staffLines.size(); i++) {
-		staffLines[i] = 0;
-	}
+	std::fill(staffLines.begin(), staffLines.end(), 0);
 
 	// Cum fac sa adun toti pixelii de pe o linie (pt. ca o linie de portativ e 2 linii din imagine)? 
 	// Fac cu elemente conexe sau harcodez?
@@ -305,12 +360,25 @@ void storePitches(Mat_<uchar> img) {
 		}
 	}
 
-	for (int i = 0; i < staffLines.size(); i++) {
-		if (staffLines[i] > 0) {
-			cout << i << endl;
+	for (int i = 0; i < staffLines.size() - 1; i++) {
+		if (staffLines[i] > 0 && staffLines[i+1] > 0) {
+			staffLinesPairs.push_back((float)(2 * i + 1) / 2);
 		}
+	}
 
-		//cout << staffLines[i] << endl;
+	allStaff.push_back(staffLinesPairs[0] - 9.0);	// pt. sol de sus
+
+	for (int i = 0; i < staffLinesPairs.size() - 1; i++) {
+		allStaff.push_back(staffLinesPairs[i]);
+		float intermediate = (staffLinesPairs[i] + staffLinesPairs[i + 1]) / 2;
+		allStaff.push_back(intermediate);
+	}
+
+	allStaff.push_back(staffLinesPairs[staffLinesPairs.size() - 1]);
+	allStaff.push_back(staffLinesPairs[staffLinesPairs.size() - 1] + 9.0);	// pt. re de jos
+
+	for (int i = 0; i < allStaff.size(); i++) {
+		cout << allStaff[i] << endl;
 	}
 }
 
@@ -354,7 +422,6 @@ void onMouse(int event, int x, int y, int flags, void* param)
 	if (event == EVENT_LBUTTONDOWN) {
 		Mat_<Vec3b> img = *(Mat_<Vec3b> *)param;
 		Vec3b color = img(y, x);
-		cout << color << endl;
 
 		Mat_<uchar> gray(img.rows, img.cols);
 
@@ -369,6 +436,8 @@ void onMouse(int event, int x, int y, int flags, void* param)
 }
 
 int main() {
+	createNoteFrequencyMap();
+
 	Mat_<uchar> img = imread("Images/simple.png", IMREAD_GRAYSCALE);
 
 	Mat_<uchar> inv_img = inverse(img);
