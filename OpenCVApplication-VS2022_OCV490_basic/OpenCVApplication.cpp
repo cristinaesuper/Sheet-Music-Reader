@@ -261,6 +261,20 @@ void findPitchOfNote(pair<float, float> coords) {
 		}
 	}
 
+void findPitchOfNote(pair<float, float> coords) {
+	float noteY = coords.first;
+	float minDistance = INT_MAX;
+	int nearestStaffLine = 0;
+
+	for (int i = 0; i < allStaff.size(); i++) {
+		double distance = abs(noteY - allStaff[i]);
+
+		if (distance < minDistance) {
+			minDistance = distance;
+			nearestStaffLine = i;
+		}
+	}
+
 	cout << nearestStaffLine << endl;
 
 	playNote(noteFrequencyMap[nearestStaffLine], 700);
@@ -357,6 +371,12 @@ void storePitches(Mat_<uchar> img) {
 			if (img(i, j) == 255) {
 				staffLines[i]++;
 			}
+		}
+	}
+
+	for (int i = 0; i < staffLines.size() - 1; i++) {
+		if (staffLines[i] > 0 && staffLines[i+1] > 0) {
+			staffLinesPairs.push_back((float)(2 * i + 1) / 2);
 		}
 	}
 
