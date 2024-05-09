@@ -261,20 +261,6 @@ void findPitchOfNote(pair<float, float> coords) {
 		}
 	}
 
-void findPitchOfNote(pair<float, float> coords) {
-	float noteY = coords.first;
-	float minDistance = INT_MAX;
-	int nearestStaffLine = 0;
-
-	for (int i = 0; i < allStaff.size(); i++) {
-		double distance = abs(noteY - allStaff[i]);
-
-		if (distance < minDistance) {
-			minDistance = distance;
-			nearestStaffLine = i;
-		}
-	}
-
 	cout << nearestStaffLine << endl;
 
 	playNote(noteFrequencyMap[nearestStaffLine], 700);
