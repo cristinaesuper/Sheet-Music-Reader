@@ -4,12 +4,17 @@
 #include <opencv2/core/core.hpp>
 #include <random> 
 #include <windows.h>
+#include <opencv2/core/utils/logger.hpp>
 
 using namespace std;
 using namespace cv;
 
+#define FULL_NOTE 0
+#define HALF_NOTE 1
+
 vector<float> allStaff;
 map<int, double> noteFrequencyMap;
+float note_height;
 
 void playNote(int frequency, int duration) {
 	Beep(frequency, duration);
@@ -206,33 +211,46 @@ Mat_<uchar> eroziune(Mat_<uchar> src, Mat_<uchar> elstr) {
 	return dst;
 }
 
-void fillEmptyNotes(Mat_<uchar>& src) {
+Mat_<uchar> fillEmptyNotes(Mat_<uchar> src) {
 	Mat_<uchar> filled_image(src.size());
+	Mat_<uchar> dst(src.size());
 
-	Mat_<uchar> kernel1(6, 6);
-	kernel1 = (Mat_<uchar>(6, 6) <<
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0);
+	Mat_<uchar> kernel1(7, 7);			// era 6 inaite
+	kernel1 = (Mat_<uchar>(7, 7) <<
+		1, 1, 0, 0, 0, 1, 1,
+		1, 0, 0, 0, 0, 0, 1,
+		0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
+		1, 0, 0, 0, 0, 0, 1,
+		1, 1, 0, 0, 0, 1, 1);
 
-	Mat_<uchar> kernel2(6, 6);
+	/*Mat_<uchar> kernel2(6, 6);
 	kernel2 = (Mat_<uchar>(6, 6) <<
 		0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0);
+		0, 0, 0, 0, 0, 0);*/
+
+	Mat_<uchar> kernel2(7, 7);
+	kernel2 = (Mat_<uchar>(7, 7) <<
+		1, 0, 0, 0, 0, 0, 1,
+		0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
+		1, 0, 0, 0, 0, 0, 1);
 
 	filled_image = dilatare(src, kernel1);
 	filled_image = eroziune(filled_image, kernel2);
 
-	filled_image = filled_image - src;
+	dst = dilatare(src, kernel1);
+	dst = eroziune(dst, kernel2);
 
-	imshow("filled", filled_image);
+	return dst;
 }
 
 void removeVerticalLines(Mat_<uchar>& src) {
@@ -247,7 +265,7 @@ void removeVerticalLines(Mat_<uchar>& src) {
 	src = dilatare(src, kernel2);
 }
 
-void findPitchOfNote(pair<float, float> coords) {
+void findPitchOfNote(pair<float, float> coords, int noteType) {
 	float noteY = coords.first;
 	float minDistance = INT_MAX;
 	int nearestStaffLine = 0;
@@ -261,10 +279,14 @@ void findPitchOfNote(pair<float, float> coords) {
 		}
 	}
 
-	cout << nearestStaffLine << endl;
+	cout << "Nearest staff line: " << nearestStaffLine << endl;
 
-	playNote(noteFrequencyMap[nearestStaffLine], 700);
-
+	if (noteType == FULL_NOTE) {
+		playNote(noteFrequencyMap[nearestStaffLine], 800);
+	}
+	else {
+		playNote(noteFrequencyMap[nearestStaffLine], 1600);
+	}
 }
 
 void axaAlungire(Mat_<uchar>& src) {
@@ -290,6 +312,7 @@ void axaAlungire(Mat_<uchar>& src) {
 
 	for (int r = 0; r < src.rows; r++) {
 		for (int c = 0; c < src.cols; c++) {
+
 			if (src(r, c) == 255) {
 				numarator += (r - rb) * (c - cb);
 				numitor += (c - cb) * (c - cb) - (r - rb) * (r - rb);
@@ -301,12 +324,152 @@ void axaAlungire(Mat_<uchar>& src) {
 
 	double phi = atan2(numarator, numitor) / 2;
 
-	if (phi > -0.75 && phi < -0.45) {
-		findPitchOfNote({ rb, cb });
+	cout << "arie" << arie << endl;
+	cout << "rb" << rb << endl;
+	cout << "cb" << cb << endl;
+
+	if (phi > -0.77 && phi < -0.45) {
+		if (arie > 400) {
+			findPitchOfNote({ rb, cb }, FULL_NOTE);
+		}
+		else {
+			findPitchOfNote({ rb, cb }, HALF_NOTE);
+		}
 	}
+
+	/*** Elongatia ***/
+	int r_min = INT_MAX;
+	int r_max = 0;
+	int c_min = INT_MAX;
+	int c_max = 0;
+
+	for (int r = 0; r < src.rows; r++) {
+		for (int c = 0; c < src.cols; c++) {
+			if (src(r, c) == 255) {
+				if (r > r_max) {
+					r_max = r;
+				}
+				if (r < r_min) {
+					r_min = r;
+				}
+				if (c > c_max) {
+					c_max = c;
+				}
+				if (c < c_min) {
+					c_min = c;
+				}
+			}
+		}
+	}
+
+	cout << "Latime: " << c_max - c_min << endl;
+	cout << "Lungime: " << r_max - r_min << endl;
 }
 
-Mat_<Vec3b> getResult(Mat_<uchar> src) {
+Mat_<Vec3b> transformUToV(Mat_<uchar> img) {
+	Mat_<Vec3b> new_img(img.rows, img.cols);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			uchar value = img(i, j);
+			new_img(i, j) = Vec3b(value, value, value);
+		}
+	}
+
+	return new_img;
+}
+
+Mat_<Vec3b> slideKernelAndSing(Mat_<Vec3b> initial, Mat_<uchar> img, Mat_<uchar> filled_image) {
+	int kernel_height = static_cast<int>(note_height) + 2; 
+	int kernel_width = 26; 
+
+	int total_pixels = kernel_height * kernel_width;
+
+	cout << "kernel_height: " << kernel_height << endl;
+
+	Mat_<Vec3b> visualization = initial.clone();
+
+	set<std::pair<int, int>> detected_pixels;
+
+	for (int j = 0; j <= filled_image.cols - kernel_width; j++) {
+		for (int i = 0; i <= filled_image.rows - kernel_height; i++) {
+
+			Mat kernel_filled = filled_image(Rect(j, i, kernel_width, kernel_height));
+			Mat kernel_unfilled = img(Rect(j, i, kernel_width, kernel_height));
+			int white_pixels_filled = countNonZero(kernel_filled);
+			int white_pixels_unfilled = countNonZero(kernel_unfilled);
+
+			if (white_pixels_filled > 0.75 * total_pixels) { // simple2 - 75, simple - 
+
+				if (detected_pixels.find(std::make_pair(j, i)) == detected_pixels.end()) {
+					cout << "Note found at (" << j << ", " << i << ") - Sing the note!" << endl;
+
+					double numarator = 0;
+					double numitor = 0;
+
+					int arie = 0;
+					float rb = 0;
+					float cb = 0;
+
+					for (int r = 0; r < kernel_filled.rows; r++) {
+						for (int c = 0; c < kernel_filled.cols; c++) {
+							int i2 = i + r - kernel_filled.rows / 2;
+							int j2 = j + c - kernel_filled.cols / 2;
+
+							if (isInside(filled_image, i2, j2)) {
+								detected_pixels.insert(std::make_pair(j2, i2));
+
+								if (filled_image(i2, j2) == 255) {
+									arie += 1;
+									rb += i2;
+									cb += j2;
+								}
+							}
+						}
+					}
+
+					rb /= arie;
+					cb /= arie;
+
+					for (int r = 0; r < kernel_filled.rows; r++) {
+						for (int c = 0; c < kernel_filled.cols; c++) {
+							int i2 = i + r - kernel_filled.rows / 2;
+							int j2 = j + c - kernel_filled.cols / 2;
+
+							if (isInside(filled_image, i2, j2)) {
+								if (filled_image(i2, j2) == 255) {
+									numarator += (i2 - rb) * (c - cb);
+									numitor += ((j2 - cb) * (j2 - cb)) - ((i2 - rb) * (i2 - rb));
+								}
+							}
+						}
+					}
+
+					numarator *= 2;
+
+					double phi = atan2(numarator, numitor) / 2;
+
+					cout << "Phi: " << phi << endl;
+
+					if (phi > -1 && phi < -0.45) {
+						if (white_pixels_unfilled < white_pixels_filled) {
+							rectangle(visualization, Point(j, i), Point(j + kernel_width, i + kernel_height), Scalar(0, 255, 0), 2);
+							findPitchOfNote({ rb, cb }, HALF_NOTE);
+						}
+						else {
+							rectangle(visualization, Point(j, i), Point(j + kernel_width, i + kernel_height), Scalar(0, 0, 255), 2);
+							findPitchOfNote({ rb, cb }, FULL_NOTE);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return visualization;
+}
+
+Mat_<Vec3b> getResult(Mat_<uchar> initial, Mat_<uchar> src) {
 	Mat_<uchar> dst(src.size());
 
 	Mat_<uchar> kernel1(2, 2);			// cred ca era 3 si 5 inainte. sau 4 si 5 si kernel-urile cu 1 in colturi
@@ -321,17 +484,24 @@ Mat_<Vec3b> getResult(Mat_<uchar> src) {
 		1, 0, 0, 1, 
 		1, 0, 0, 1);
 
-	//cout << kernel2;
-
 	dst = eroziune(src, kernel1);
 	dst = dilatare(dst, kernel2);
 
-	fillEmptyNotes(dst);
-	removeVerticalLines(dst);
+	auto filled_image = fillEmptyNotes(dst);
 
-	//axaAlungire(dst);
+	removeVerticalLines(dst);
+	removeVerticalLines(filled_image);
+
+	//imshow("dst", dst);
+	//imshow("filled_image", filled_image);
+
+	Mat_<Vec3b> initialV = transformUToV(initial);
+
+	Mat_<Vec3b> recognized = slideKernelAndSing(initialV, dst, filled_image);
 
 	Mat_<Vec3b> coloured_img = lab_5_bfs_labeling(dst);
+
+	imshow("recognized", recognized);
 
 	return coloured_img;
 }
@@ -341,16 +511,6 @@ void storePitches(Mat_<uchar> img) {
 	vector<float> staffLinesPairs;
 
 	std::fill(staffLines.begin(), staffLines.end(), 0);
-
-	// Cum fac sa adun toti pixelii de pe o linie (pt. ca o linie de portativ e 2 linii din imagine)? 
-	// Fac cu elemente conexe sau harcodez?
-	// R: sa fac media randurilor una dupa alta care sunt diferite de 0 ca sa vad unde e mijlocul liniei de portativ (poate fi float, cum am aici daor doua randuri)
-	
-	
-	// La doime, ca sa vad care e si care nu e doime, merg un un el. structural patrat si vad daca 80% e alb, atunci e patrime
-	// daca mai putin de 80%, atunci e doime.
-
-	// Vr. sa incerc si cu scadere sa vad ce iese
 	
 	for (int i = 0; i < img.rows; i++) {
 		for (int j = 0; j < img.cols; j++) {
@@ -360,10 +520,10 @@ void storePitches(Mat_<uchar> img) {
 		}
 	}
 
-	for (int i = 0; i < staffLines.size() - 1; i++) {
-		if (staffLines[i] > 0 && staffLines[i+1] > 0) {
-			staffLinesPairs.push_back((float)(2 * i + 1) / 2);
-		}
+	cout << "Array-ul de staff lines: " << endl;
+
+	for (int i = 0; i < staffLines.size(); i++) {
+		cout << staffLines[i] << endl;
 	}
 
 	for (int i = 0; i < staffLines.size() - 1; i++) {
@@ -372,7 +532,9 @@ void storePitches(Mat_<uchar> img) {
 		}
 	}
 
-	allStaff.push_back(staffLinesPairs[0] - 9.0);	// pt. sol de sus
+	float dist = (staffLinesPairs[1] - staffLinesPairs[0]) / 2;
+
+	allStaff.push_back(staffLinesPairs[0] - dist);	// pt. sol de sus
 
 	for (int i = 0; i < staffLinesPairs.size() - 1; i++) {
 		allStaff.push_back(staffLinesPairs[i]);
@@ -381,11 +543,15 @@ void storePitches(Mat_<uchar> img) {
 	}
 
 	allStaff.push_back(staffLinesPairs[staffLinesPairs.size() - 1]);
-	allStaff.push_back(staffLinesPairs[staffLinesPairs.size() - 1] + 9.0);	// pt. re de jos
+	allStaff.push_back(staffLinesPairs[staffLinesPairs.size() - 1] + dist);	// pt. re de jos
+
+	cout << "Array-ul de linii, spatii intre linii: " << endl;
 
 	for (int i = 0; i < allStaff.size(); i++) {
 		cout << allStaff[i] << endl;
 	}
+
+	note_height = dist * 2;
 }
 
 Mat_<uchar> removeStaffLines(Mat_<uchar> src) {
@@ -442,9 +608,11 @@ void onMouse(int event, int x, int y, int flags, void* param)
 }
 
 int main() {
+	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
+
 	createNoteFrequencyMap();
 
-	Mat_<uchar> img = imread("Images/simple.png", IMREAD_GRAYSCALE);
+	Mat_<uchar> img = imread("Images/row_no_key.png", IMREAD_GRAYSCALE);
 
 	Mat_<uchar> inv_img = inverse(img);
 
@@ -453,10 +621,10 @@ int main() {
 
 	Mat_<uchar> new_img_only_staff = removeStaffLines(inv_img);
 	Mat_<uchar> new_img_staff_removed = inv_img - new_img_only_staff;
-	Mat_<Vec3b> result = getResult(new_img_staff_removed);
+	Mat_<Vec3b> result = getResult(inv_img, new_img_staff_removed);
 
 	//imshow("before", img);
-	imshow("inv", inv_img);
+	//imshow("inv", inv_img);
 	imshow("only_staff", new_img_only_staff);
 	imshow("result", result);
 
