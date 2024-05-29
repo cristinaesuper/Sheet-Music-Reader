@@ -21,18 +21,6 @@ void playNote(int frequency, int duration) {
 }
 
 void createNoteFrequencyMap() {
-	/*noteFrequencyMap["re"] = 293.66;
-	noteFrequencyMap["mi"] = 329.63;
-	noteFrequencyMap["fa"] = 349.23;
-	noteFrequencyMap["sol"] = 392.00;
-	noteFrequencyMap["la"] = 440.00;
-	noteFrequencyMap["si"] = 493.88;
-	noteFrequencyMap["do2"] = 523.25;
-	noteFrequencyMap["re2"] = 587.33;
-	noteFrequencyMap["mi2"] = 659.25;
-	noteFrequencyMap["fa2"] = 698.46;
-	noteFrequencyMap["sol2"] = 783.99;*/
-
 	noteFrequencyMap[10] = 293.66;
 	noteFrequencyMap[9] = 329.63;
 	noteFrequencyMap[8] = 349.23;
@@ -73,78 +61,6 @@ Mat_<Vec3b> label2color(Mat_<int> labels, int label) {
 	}
 
 	return coloredImg;
-}
-
-pair<float, float> computeCenterOfMass(Mat_<int>& labels, int label) {
-	int arie = 0;
-	float rb = 0;
-	float cb = 0;
-
-	for (int r = 0; r < labels.rows; r++) {
-		for (int c = 0; c < labels.cols; c++) {
-			if (labels(r, c) == label) {
-				arie += 1;
-				rb += r;
-				cb += c;
-			}
-		}
-	}
-
-	rb /= arie;
-	cb /= arie;
-
-	return { rb, cb };
-}
-
-Mat_<Vec3b> lab_5_bfs_labeling(Mat_<uchar> img) {
-	int label = 0;	
-	Mat_<int> labels(img.rows, img.cols);
-	vector<pair<float, float>> centers;
-
-	for (int i = 0; i < img.rows; i++) {
-		for (int j = 0; j < img.cols; j++) {
-			labels(i, j) = 0;
-		}
-	}
-
-	int di[] = { -1, -1, -1, 0, 1, 1, 1, 0 };
-	int dj[] = { -1, 0, 1, 1, 1, 0, -1, -1 };
-
-	for (int i = 0; i < img.rows; i++) {
-		for (int j = 0; j < img.cols; j++) {
-
-			if (img(i, j) == 255 && labels(i, j) == 0) {
-				label++;
-				queue<pair<int, int>> Q;
-				labels(i, j) = label;
-				Q.push({ i, j });
-
-				while (!Q.empty()) {
-					auto q = Q.front();
-					Q.pop();
-
-					for (int k = 0; k < 8; k++) {
-
-						int i2 = q.first + di[k];
-						int j2 = q.second + dj[k];
-
-						if (isInside(img, i2, j2) == true) {
-							if (img(i2, j2) == 255 && labels(i2, j2) == 0) {
-								labels(i2, j2) = label;
-								Q.push({ i2, j2 });
-							}
-						}
-					}
-				}
-
-				auto center = computeCenterOfMass(labels, label);
-				centers.push_back(center);
-			}
-		}
-	}
-
-	auto colors = label2color(labels, label);
-	return colors;
 }
 
 Mat_<uchar> dilatare(Mat_<uchar> src, Mat_<uchar> elstr) {
@@ -214,14 +130,14 @@ Mat_<uchar> fillEmptyNotes(Mat_<uchar> src) {
 	Mat_<uchar> filled_image(src.size());
 	Mat_<uchar> dst(src.size());
 
-	Mat_<uchar> kernel1(7, 7);			
+	Mat_<uchar> kernel1(7, 7);
 	kernel1 = (Mat_<uchar>(7, 7) <<
 		1, 1, 0, 0, 0, 1, 1,
-		1, 0, 0, 0, 0, 0, 1,
 		0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0,
-		1, 0, 0, 0, 0, 0, 1,
+		0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
 		1, 1, 0, 0, 0, 1, 1);
 
 	Mat_<uchar> kernel2(7, 7);
@@ -277,83 +193,6 @@ void findPitchOfNote(pair<float, float> coords, int noteType) {
 	}
 }
 
-void axaAlungire(Mat_<uchar>& src) {
-	double numarator = 0;
-	double numitor = 0;
-
-	int arie = 0;
-	float rb = 0;
-	float cb = 0;
-
-	for (int r = 0; r < src.rows; r++) {
-		for (int c = 0; c < src.cols; c++) {
-			if (src(r, c) == 255) {
-				arie += 1;
-				rb += r;
-				cb += c;
-			}
-		}
-	}
-
-	rb /= arie;
-	cb /= arie;
-
-	for (int r = 0; r < src.rows; r++) {
-		for (int c = 0; c < src.cols; c++) {
-
-			if (src(r, c) == 255) {
-				numarator += (r - rb) * (c - cb);
-				numitor += (c - cb) * (c - cb) - (r - rb) * (r - rb);
-			}
-		}
-	}
-
-	numarator *= 2;
-
-	double phi = atan2(numarator, numitor) / 2;
-
-	cout << "arie" << arie << endl;
-	cout << "rb" << rb << endl;
-	cout << "cb" << cb << endl;
-
-	if (phi > -1 && phi < -0.45) {
-		if (arie > 400) {
-			findPitchOfNote({ rb, cb }, FULL_NOTE);
-		}
-		else {
-			findPitchOfNote({ rb, cb }, HALF_NOTE);
-		}
-	}
-
-	/*** Elongatia ***/
-	int r_min = INT_MAX;
-	int r_max = 0;
-	int c_min = INT_MAX;
-	int c_max = 0;
-
-	for (int r = 0; r < src.rows; r++) {
-		for (int c = 0; c < src.cols; c++) {
-			if (src(r, c) == 255) {
-				if (r > r_max) {
-					r_max = r;
-				}
-				if (r < r_min) {
-					r_min = r;
-				}
-				if (c > c_max) {
-					c_max = c;
-				}
-				if (c < c_min) {
-					c_min = c;
-				}
-			}
-		}
-	}
-
-	cout << "Latime: " << c_max - c_min << endl;
-	cout << "Lungime: " << r_max - r_min << endl;
-}
-
 Mat_<Vec3b> transformUToV(Mat_<uchar> img) {
 	Mat_<Vec3b> new_img(img.rows, img.cols);
 
@@ -375,7 +214,7 @@ Mat_<Vec3b> slideKernelAndSing(Mat_<Vec3b> initial, Mat_<uchar> img, Mat_<uchar>
 
 	Mat_<Vec3b> visualization = initial.clone();
 
-	set<std::pair<int, int>> detected_pixels;
+	set<pair<int, int>> detected_pixels;
 
 	for (int j = 0; j <= filled_image.cols - kernel_width; j++) {
 		for (int i = 0; i <= filled_image.rows - kernel_height; i++) {
@@ -387,7 +226,7 @@ Mat_<Vec3b> slideKernelAndSing(Mat_<Vec3b> initial, Mat_<uchar> img, Mat_<uchar>
 
 			if (white_pixels_filled > 0.75 * total_pixels) { 
 
-				if (detected_pixels.find(std::make_pair(j, i)) == detected_pixels.end()) {
+				if (detected_pixels.find({i, j}) == detected_pixels.end()) {
 					double numarator = 0;
 					double numitor = 0;
 
@@ -401,7 +240,7 @@ Mat_<Vec3b> slideKernelAndSing(Mat_<Vec3b> initial, Mat_<uchar> img, Mat_<uchar>
 							int j2 = j + c - (kernel_filled.cols + 5) / 2;
 
 							if (isInside(filled_image, i2, j2)) {
-								detected_pixels.insert(std::make_pair(j2, i2));
+								detected_pixels.insert({i2, j2});
 
 								if (filled_image(i2, j2) == 255) {
 									arie += 1;
@@ -433,7 +272,8 @@ Mat_<Vec3b> slideKernelAndSing(Mat_<Vec3b> initial, Mat_<uchar> img, Mat_<uchar>
 
 					double phi = atan2(numarator, numitor) / 2;
 
-					if (phi > -1 && phi < -0.45) {
+					if (phi > -1 && phi < -0.43 && arie < 150) {
+
 						if (white_pixels_unfilled < white_pixels_filled) {
 							rectangle(visualization, Point(j, i), Point(j + kernel_width, i + kernel_height), Scalar(0, 255, 0), 2);
 							findPitchOfNote({ rb, cb }, HALF_NOTE);
@@ -478,18 +318,16 @@ Mat_<Vec3b> getResult(Mat_<uchar> initial, Mat_<uchar> src) {
 
 	Mat_<Vec3b> recognized = slideKernelAndSing(initialV, dst, filled_image);
 
-	Mat_<Vec3b> coloured_img = lab_5_bfs_labeling(dst);
-
-	imshow("recognized", recognized);
-
-	return coloured_img;
+	return recognized;
 }
 
 void storePitches(Mat_<uchar> img) {
+	allStaff.clear();
+
 	vector<int> staffLines(img.rows);
 	vector<float> staffLinesPairs;
 
-	std::fill(staffLines.begin(), staffLines.end(), 0);
+	fill(staffLines.begin(), staffLines.end(), 0);
 	
 	for (int i = 0; i < img.rows; i++) {
 		for (int j = 0; j < img.cols; j++) {
@@ -499,14 +337,8 @@ void storePitches(Mat_<uchar> img) {
 		}
 	}
 
-	/*cout << "Array-ul de staff lines: " << endl;
-
-	for (int i = 0; i < staffLines.size(); i++) {
-		cout << staffLines[i] << endl;
-	}*/
-
 	for (int i = 0; i < staffLines.size() - 1; i++) {
-		if (staffLines[i] > 0 && staffLines[i+1] > 0) {
+		if (staffLines[i] > img.cols / 2 && staffLines[i+1] > img.cols / 2) {
 			staffLinesPairs.push_back((float)(2 * i + 1) / 2);
 		}
 	}
@@ -524,16 +356,62 @@ void storePitches(Mat_<uchar> img) {
 	allStaff.push_back(staffLinesPairs[staffLinesPairs.size() - 1]);
 	allStaff.push_back(staffLinesPairs[staffLinesPairs.size() - 1] + dist);	// pt. re de jos
 
-	/*cout << "Array-ul de linii, spatii intre linii: " << endl;
-
-	for (int i = 0; i < allStaff.size(); i++) {
-		cout << allStaff[i] << endl;
-	}*/
-
 	note_height = dist * 2;
 }
 
-Mat_<uchar> removeStaffLines(Mat_<uchar> src) {
+int padding = 30;
+
+pair<vector<Mat_<uchar>>, vector<Mat_<uchar>>> splitImage(Mat_<uchar> img, Mat_<uchar> src) {
+	vector<Mat_<uchar>> staffGroups;
+	vector<Mat_<uchar>> new_srcs;
+	vector<int> staffLines(img.rows);
+
+	fill(staffLines.begin(), staffLines.end(), 0);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img(i, j) == 255) {
+				staffLines[i]++;
+			}
+		}
+	}
+
+	int threshold = img.cols / 2; 
+	bool inStaffGroup = false;
+	int start = 0;
+	int staffLineCount = 0;
+
+	for (int i = 0; i < img.rows; i++) {
+		if (staffLines[i] > threshold) {
+			if (!inStaffGroup) {
+				start = i;
+				inStaffGroup = true;
+			}
+			staffLineCount++;
+		}
+		else {
+			if (inStaffGroup) {
+				if (staffLineCount == 10) { 
+					int end = i;
+					inStaffGroup = false;
+					staffLineCount = 0;
+
+					start = max(0, start - padding);
+					end = min(img.rows - 1, end + padding);
+
+					Mat_<uchar> staffGroup = img(Range(start, end), Range::all()).clone();
+					Mat_<uchar> src_new = src(Range(start, end), Range::all()).clone();
+					staffGroups.push_back(staffGroup);
+					new_srcs.push_back(src_new);
+				}
+			}
+		}
+	}
+
+	return { staffGroups, new_srcs };
+}
+
+pair<vector<Mat_<uchar>>, vector<Mat_<uchar>>> removeStaffLines(Mat_<uchar> src) {
 	Mat_<uchar> dst(src.size());
 
 	Mat_<uchar> kernel(5, 33);
@@ -545,9 +423,9 @@ Mat_<uchar> removeStaffLines(Mat_<uchar> src) {
 
 	dst = eroziune(src, kernel);
 
-	storePitches(dst);
+	pair<vector<Mat_<uchar>>, vector<Mat_<uchar>>> splittedImages = splitImage(dst, src);
 	
-	return dst;
+	return splittedImages;
 }
 
 Mat_<uchar> inverse(Mat_<uchar> img) {
@@ -568,26 +446,47 @@ Mat_<uchar> inverse(Mat_<uchar> img) {
 	return inv_img;
 }
 
-void onMouse(int event, int x, int y, int flags, void* param)
-{
-	if (event == EVENT_LBUTTONDOWN) {
-		Mat_<Vec3b> img = *(Mat_<Vec3b> *)param;
-		Vec3b color = img(y, x);
+vector<Mat_<Vec3b>> processSplits(pair<vector<Mat_<uchar>>, vector<Mat_<uchar>>> splitted) {
+	vector<Mat_<Vec3b>> results;
 
-		Mat_<uchar> gray(img.rows, img.cols);
+	for (int i = 0; i < splitted.first.size(); i++) {
+		Mat_<uchar> splitted_inv_img = splitted.second[i];
+		Mat_<uchar> splitted_staff = splitted.first[i];
 
-		for (int i = 0; i < img.rows; i++) {
-			for (int j = 0; j < img.cols; j++) {
-				gray(i, j) = img(i, j) == color ? 255 : 0;
+		storePitches(splitted_staff);
+
+		Mat_<uchar> new_img_staff_removed = splitted_inv_img - splitted_staff;
+
+		Mat_<Vec3b> result = getResult(splitted_inv_img, new_img_staff_removed);
+
+		results.push_back(result);
+	}
+
+	return results;
+}
+
+Mat_<Vec3b> combineResults(vector<Mat_<Vec3b>> results) {
+	int height = 0;
+
+	for (int i = 0; i < results.size(); i++) {
+		height += results[i].rows;
+	}
+
+	Mat_<Vec3b> result(height, results[0].cols);
+	int count = 0;
+
+	for (int k = 0; k < results.size(); k++) {
+
+		for (int i = 0; i < results[k].rows; i++) {
+			for (int j = 0; j < results[k].cols; j++) {
+				result(count + i, j) = results[k](i, j);
 			}
 		}
 
-		axaAlungire(gray);
+		count += results[k].rows;
 	}
-}
 
-void split_image() {
-
+	return result;
 }
 
 int main() {
@@ -595,20 +494,17 @@ int main() {
 
 	createNoteFrequencyMap();
 
-	Mat_<uchar> img = imread("Images/simple.png", IMREAD_GRAYSCALE);
+	Mat_<uchar> img = imread("Images/sweet_all.png", IMREAD_GRAYSCALE);
 
 	Mat_<uchar> inv_img = inverse(img);
 
-	Mat_<uchar> kernel(3, 3);
-	kernel.setTo(0);
+	pair<vector<Mat_<uchar>>, vector<Mat_<uchar>>> splitted = removeStaffLines(inv_img);
 
-	Mat_<uchar> new_img_only_staff = removeStaffLines(inv_img);
-	Mat_<uchar> new_img_staff_removed = inv_img - new_img_only_staff;
-	Mat_<Vec3b> result = getResult(inv_img, new_img_staff_removed);
+	vector<Mat_<Vec3b>> results = processSplits(splitted);
+
+	Mat_<Vec3b> result = combineResults(results);
 
 	imshow("result", result);
-
-	setMouseCallback("result", onMouse, &result);
 
 	waitKey();
 
